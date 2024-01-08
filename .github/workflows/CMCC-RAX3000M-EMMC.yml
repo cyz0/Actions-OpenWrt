@@ -17,7 +17,7 @@ on:
       MAC_ORDER:
         description: 'Use the original MAC address order'
         required: true
-        default: false
+        default: true
         type: boolean
       EEPROM:
         description: 'Use nx30pro eeprom'
@@ -29,11 +29,11 @@ on:
         required: true
         default: false
         type: boolean
-      DOCKERMAN:
-        description: 'Build luci-app-dockerman'
-        required: true
-        default: true
-        type: boolean
+#      DOCKERMAN:
+#        description: 'Build luci-app-dockerman'
+#        required: true
+#        default: false
+#        type: boolean
       EMMC_52MHZ:
         description: 'eMMC use 52MHz max-frequency'
         required: true
@@ -120,12 +120,12 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         
-    - name: 加载config & DIY_P2_SH
-      run: |
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+#    - name: 加载config & DIY_P2_SH
+#      run: |
+#        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+#        chmod +x $DIY_P2_SH
+#        cd openwrt
+#        $GITHUB_WORKSPACE/$DIY_P2_SH
         
     - name: 设置原厂的MAC地址顺序(运行则是，不运行则否)
       if: github.event.inputs.MAC_ORDER == 'true'
@@ -159,8 +159,8 @@ jobs:
         }}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
         fi
 
-    - name: 设置使用mtwifi-cfg无线配置界面(不运行则是，运行则否)
-      if: github.event.inputs.MTWIFI_CFG == 'false'
+    - name: 设置使用mtwifi-cfg无线配置界面(运行则是，不运行则否)
+      if: github.event.inputs.MTWIFI_CFG == 'true'
       run: |
         cd openwrt
         sed -i 's/CONFIG_PACKAGE_luci-app-mtwifi-cfg=y/CONFIG_PACKAGE_luci-app-mtk=y/g' .config
@@ -168,18 +168,18 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_mtwifi-cfg=y/CONFIG_PACKAGE_wifi-profile=y/g' .config
         sed -i 's/CONFIG_PACKAGE_lua-cjson=y/CONFIG_WIFI_NORMAL_SETTING=y/g' .config
 
-    - name: 设置编译dockerman(不运行则是，运行则否)
-      if: github.event.inputs.DOCKERMAN == 'false'
-      run: |
-        cd openwrt
-        sed -i '/CONFIG_PACKAGE_luci-app-dockerman=y/d' .config
+#    - name: 设置编译dockerman(不运行则是，运行则否)
+#      if: github.event.inputs.DOCKERMAN == 'false'
+#      run: |
+#        cd openwrt
+#        sed -i '/CONFIG_PACKAGE_luci-app-dockerman=y/d' .config
 
-    - name: 设置eMMC使用highspeed
-      run: |
-        cd openwrt
-        if ! grep -q 'cap-mmc-highspeed' "${{ env.DTS_FILE }}"; then
-                sed -i -e '/bus-width = <8>;/ a\	cap-mmc-highspeed;' "${{ env.DTS_FILE }}"
-        fi
+#    - name: 设置eMMC使用highspeed
+#      run: |
+#        cd openwrt
+#        if ! grep -q 'cap-mmc-highspeed' "${{ env.DTS_FILE }}"; then
+#                sed -i -e '/bus-width = <8>;/ a\	cap-mmc-highspeed;' "${{ env.DTS_FILE }}"
+#        fi
 
     - name: 设置eMMC是否使用52MHz频率(运行则是，不运行则否)
       if: github.event.inputs.EMMC_52MHZ == 'true'
