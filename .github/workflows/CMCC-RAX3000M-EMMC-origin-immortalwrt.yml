@@ -14,35 +14,36 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      MAC_ORDER:
-        description: 'Use the original MAC address order'
-        required: true
-        default: true
-        type: boolean
-      EEPROM:
-        description: 'Use nx30pro eeprom'
-        required: true
-        default: false
-        type: boolean
-      MTWIFI_CFG:
-        description: 'Use mtwifi-cfg'
-        required: true
-        default: false
-        type: boolean
+#      MAC_ORDER:
+#        description: 'Use the original MAC address order'
+#        required: true
+#        default: true
+#        type: boolean
+#      EEPROM:
+#        description: 'Use nx30pro eeprom'
+#        required: true
+#        default: false
+#        type: boolean
+#      MTWIFI_CFG:
+#        description: 'Use mtwifi-cfg'
+#        required: true
+#        default: false
+#        type: boolean
 #      DOCKERMAN:
 #        description: 'Build luci-app-dockerman'
 #        required: true
 #        default: false
 #        type: boolean
-      EMMC_52MHZ:
-        description: 'eMMC use 52MHz max-frequency'
+#      EMMC_52MHZ:
+#        description: 'eMMC use 52MHz max-frequency'
+#        required: true
+#        default: false
+#        type: boolean
+      ssh:
+        description: 'SSH connection to Actions'
         required: true
         default: false
         type: boolean
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
 #  schedule:
 #    - cron: 0 16 * * *
 
@@ -130,46 +131,46 @@ jobs:
 #        cd openwrt
 #        $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: 设置原厂的MAC地址顺序(运行则是，不运行则否)
-      if: github.event.inputs.MAC_ORDER == 'true'
-      run: |
-        cd openwrt
-        ## 调换lan、wan的MAC地址
-        sed -i '/cmcc,rax3000m-emmc)/{n; s/lan_mac=$(mmc_get_mac_binary factory 0x24)/lan_mac=$(mmc_get_mac_binary factory 0x2A)/; n; s/wan_mac=$(mmc_get_mac_binary factory 0x2a)/wan_mac=$(mmc_get_mac_binary factory 0x24)/}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
-        ## 创建一个辅助文件。文件内容是写入MAC地址到dat文件，固定wifi MAC地址
-        echo -e "\t\tlocal wifi0_mac=\"\$(mmc_get_mac_binary factory 0x04)\"
-        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi0_mac/;b;}; \\\$aMacAddress=\$wifi0_mac\" /etc/wireless/mediatek/mt7981.dbdc.b0.dat
-        \t\tlocal wifi1_mac=\"\$(macaddr_setbit_la \$wifi0_mac)\"
-        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi1_mac/;b;}; \\\$aMacAddress=\$wifi1_mac\" /etc/wireless/mediatek/mt7981.dbdc.b1.dat" > temp_insert.txt
-        ## 将文本内容写入02_network
-        sed -i '/mediatek_setup_macs()/,/\};/ {/cmcc,rax3000m-emmc)/ {n;n;n;r temp_insert.txt
-        }}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
+#    - name: 设置原厂的MAC地址顺序(运行则是，不运行则否)
+#      if: github.event.inputs.MAC_ORDER == 'true'
+#      run: |
+#        cd openwrt
+#        ## 调换lan、wan的MAC地址
+#        sed -i '/cmcc,rax3000m-emmc)/{n; s/lan_mac=$(mmc_get_mac_binary factory 0x24)/lan_mac=$(mmc_get_mac_binary factory 0x2A)/; n; s/wan_mac=$(mmc_get_mac_binary factory 0x2a)/wan_mac=$(mmc_get_mac_binary factory 0x24)/}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
+#        ## 创建一个辅助文件。文件内容是写入MAC地址到dat文件，固定wifi MAC地址
+#        echo -e "\t\tlocal wifi0_mac=\"\$(mmc_get_mac_binary factory 0x04)\"
+#        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi0_mac/;b;}; \\\$aMacAddress=\$wifi0_mac\" /etc/wireless/mediatek/mt7981.dbdc.b0.dat
+#        \t\tlocal wifi1_mac=\"\$(macaddr_setbit_la \$wifi0_mac)\"
+#        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi1_mac/;b;}; \\\$aMacAddress=\$wifi1_mac\" /etc/wireless/mediatek/mt7981.dbdc.b1.dat" > temp_insert.txt
+#        ## 将文本内容写入02_network
+#        sed -i '/mediatek_setup_macs()/,/\};/ {/cmcc,rax3000m-emmc)/ {n;n;n;r temp_insert.txt
+#        }}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
 
-    - name: 设置使用nx30pro的高功率eeprom(运行则是，不运行则否)
-      if: github.event.inputs.EEPROM == 'true'
-      run: |
-        cp CMCC-RAX3000M-EMMC/nx30pro_eeprom.bin openwrt/package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/MT7981_iPAiLNA_EEPROM.bin
-        cd openwrt
-        ## 如果MAC没有修复则单独固定WiFi MAC
-        if sed -n '/rax3000m/,/;;/p' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network | grep -q 'lan_mac=$(mmc_get_mac_binary factory 0x24)'; then
-        ## 创建一个辅助文件。文件内容是写入MAC地址到dat文件，固定wifi MAC地址
-        echo -e "\t\tlocal wifi0_mac=\"\$(mmc_get_mac_binary factory 0x04)\"
-        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi0_mac/;b;}; \\\$aMacAddress=\$wifi0_mac\" /etc/wireless/mediatek/mt7981.dbdc.b0.dat
-        \t\tlocal wifi1_mac=\"\$(macaddr_setbit_la \$wifi0_mac)\"
-        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi1_mac/;b;}; \\\$aMacAddress=\$wifi1_mac\" /etc/wireless/mediatek/mt7981.dbdc.b1.dat" > temp_insert.txt
-        ## 将文本内容写入02_network
-        sed -i '/mediatek_setup_macs()/,/\};/ {/cmcc,rax3000m-emmc)/ {n;n;n;r temp_insert.txt
-        }}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
-        fi
-
-    - name: 设置使用mtwifi-cfg无线配置界面(运行则是，不运行则否)
-      if: github.event.inputs.MTWIFI_CFG == 'true'
-      run: |
-        cd openwrt
-        sed -i 's/CONFIG_PACKAGE_luci-app-mtk=y/CONFIG_PACKAGE_luci-app-mtwifi-cfg=y/g' .config
-        sed -i 's/CONFIG_PACKAGE_luci-i18n-mtk-zh-cn=y/CONFIG_PACKAGE_luci-i18n-mtwifi-cfg-zh-cn=y/g' .config
-        sed -i 's/CONFIG_PACKAGE_wifi-profile=y/CONFIG_PACKAGE_mtwifi-cfg=y/g' .config
-        sed -i 's/CONFIG_WIFI_NORMAL_SETTING=y/CONFIG_PACKAGE_lua-cjson=y/g' .config
+#    - name: 设置使用nx30pro的高功率eeprom(运行则是，不运行则否)
+#      if: github.event.inputs.EEPROM == 'true'
+#      run: |
+#        cp CMCC-RAX3000M-EMMC/nx30pro_eeprom.bin openwrt/package/mtk/drivers/mt_wifi/files/mt7981-default-eeprom/MT7981_iPAiLNA_EEPROM.bin
+#        cd openwrt
+#        ## 如果MAC没有修复则单独固定WiFi MAC
+#        if sed -n '/rax3000m/,/;;/p' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network | grep -q 'lan_mac=$(mmc_get_mac_binary factory 0x24)'; then
+#        ## 创建一个辅助文件。文件内容是写入MAC地址到dat文件，固定wifi MAC地址
+#        echo -e "\t\tlocal wifi0_mac=\"\$(mmc_get_mac_binary factory 0x04)\"
+#        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi0_mac/;b;}; \\\$aMacAddress=\$wifi0_mac\" /etc/wireless/mediatek/mt7981.dbdc.b0.dat
+#        \t\tlocal wifi1_mac=\"\$(macaddr_setbit_la \$wifi0_mac)\"
+#        \t\tsed -i \"/^MacAddress=.*/ {s/.*/MacAddress=\$wifi1_mac/;b;}; \\\$aMacAddress=\$wifi1_mac\" /etc/wireless/mediatek/mt7981.dbdc.b1.dat" > temp_insert.txt
+#        ## 将文本内容写入02_network
+#        sed -i '/mediatek_setup_macs()/,/\};/ {/cmcc,rax3000m-emmc)/ {n;n;n;r temp_insert.txt
+#        }}' target/linux/mediatek/mt7981/base-files/etc/board.d/02_network
+#        fi
+#
+#    - name: 设置使用mtwifi-cfg无线配置界面(运行则是，不运行则否)
+#      if: github.event.inputs.MTWIFI_CFG == 'true'
+#      run: |
+#        cd openwrt
+#        sed -i 's/CONFIG_PACKAGE_luci-app-mtk=y/CONFIG_PACKAGE_luci-app-mtwifi-cfg=y/g' .config
+#        sed -i 's/CONFIG_PACKAGE_luci-i18n-mtk-zh-cn=y/CONFIG_PACKAGE_luci-i18n-mtwifi-cfg-zh-cn=y/g' .config
+#        sed -i 's/CONFIG_PACKAGE_wifi-profile=y/CONFIG_PACKAGE_mtwifi-cfg=y/g' .config
+#        sed -i 's/CONFIG_WIFI_NORMAL_SETTING=y/CONFIG_PACKAGE_lua-cjson=y/g' .config
 
 #    - name: 设置编译dockerman(不运行则是，运行则否)
 #      if: github.event.inputs.DOCKERMAN == 'false'
@@ -184,15 +185,15 @@ jobs:
 #                sed -i -e '/bus-width = <8>;/ a\	cap-mmc-highspeed;' "${{ env.DTS_FILE }}"
 #        fi
 
-    - name: 设置eMMC是否使用52MHz频率(运行则是，不运行则否)
-      if: github.event.inputs.EMMC_52MHZ == 'true'
-      run: |
-        cd openwrt
-        sed -i 's/max-frequency = <.*>/max-frequency = <52000000>/g' "${{ env.DTS_FILE }}"
+#    - name: 设置eMMC是否使用52MHz频率(运行则是，不运行则否)
+#      if: github.event.inputs.EMMC_52MHZ == 'true'
+#      run: |
+#        cd openwrt
+#        sed -i 's/max-frequency = <.*>/max-frequency = <52000000>/g' "${{ env.DTS_FILE }}"
 
     - name: SSH链接管理
       uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      if: github.event.inputs.ssh == 'true'
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
